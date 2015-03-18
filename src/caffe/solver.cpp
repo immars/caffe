@@ -158,62 +158,90 @@ void Solver<Dtype>::InitTestNets() {
   }
 }
 
+
 template <typename Dtype>
-void Solver<Dtype>::Step(int iters) {
+void Solver<Dtype>::testPhase() {
+  if (param_.test_interval() && iter_ % param_.test_interval() == 0
+      && (iter_ > 0 || param_.test_initialization())) {
+    TestAll();
+  }
+}
+template <typename Dtype>
+void Solver<Dtype>::forwardBackwardPhase() {
   vector<Blob<Dtype>*> bottom_vec;
-  const int start_iter = iter_;
-  const int stop_iter = iter_ + iters;
   int average_loss = this->param_.average_loss();
-  vector<Dtype> losses;
-  Dtype smoothed_loss = 0;
+  net_->set_debug_info(needDisplay() && param_.debug_info());
+  Dtype loss = net_->ForwardBackward(bottom_vec);
+  if (losses.size() < average_loss) {
+    losses.push_back(loss);
+    int size = losses.size();
+    smoothed_loss = (smoothed_loss * (size - 1) + loss) / size;
+  } else {
+    int idx = (stepped) % average_loss;
+    smoothed_loss += (loss - losses[idx]) / average_loss;
+    losses[idx] = loss;
+  }
+}
 
-  for (; iter_ < stop_iter; ++iter_) {
-    if (param_.test_interval() && iter_ % param_.test_interval() == 0
-        && (iter_ > 0 || param_.test_initialization())) {
-      TestAll();
-    }
-
-    const bool display = param_.display() && iter_ % param_.display() == 0;
-    net_->set_debug_info(display && param_.debug_info());
-    Dtype loss = net_->ForwardBackward(bottom_vec);
-    if (losses.size() < average_loss) {
-      losses.push_back(loss);
-      int size = losses.size();
-      smoothed_loss = (smoothed_loss * (size - 1) + loss) / size;
-    } else {
-      int idx = (iter_ - start_iter) % average_loss;
-      smoothed_loss += (loss - losses[idx]) / average_loss;
-      losses[idx] = loss;
-    }
-    if (display) {
-      LOG(INFO) << "Iteration " << iter_ << ", loss = " << smoothed_loss;
-      const vector<Blob<Dtype>*>& result = net_->output_blobs();
-      int score_index = 0;
-      for (int j = 0; j < result.size(); ++j) {
-        const Dtype* result_vec = result[j]->cpu_data();
-        const string& output_name =
-            net_->blob_names()[net_->output_blob_indices()[j]];
-        const Dtype loss_weight =
-            net_->blob_loss_weights()[net_->output_blob_indices()[j]];
-        for (int k = 0; k < result[j]->count(); ++k) {
-          ostringstream loss_msg_stream;
-          if (loss_weight) {
-            loss_msg_stream << " (* " << loss_weight
-                            << " = " << loss_weight * result_vec[k] << " loss)";
-          }
-          LOG(INFO) << "    Train net output #"
-              << score_index++ << ": " << output_name << " = "
-              << result_vec[k] << loss_msg_stream.str();
+template <typename Dtype>
+void Solver<Dtype>::displayPhase() {
+  if (needDisplay()) {
+    LOG(INFO) << "Iteration " << iter_ << ", loss = " << smoothed_loss;
+    const vector<Blob<Dtype>*>& result = net_->output_blobs();
+    int score_index = 0;
+    for (int j = 0; j < result.size(); ++j) {
+      const Dtype* result_vec = result[j]->cpu_data();
+      const string& output_name =
+          net_->blob_names()[net_->output_blob_indices()[j]];
+      const Dtype loss_weight =
+          net_->blob_loss_weights()[net_->output_blob_indices()[j]];
+      for (int k = 0; k < result[j]->count(); ++k) {
+        ostringstream loss_msg_stream;
+        if (loss_weight) {
+          loss_msg_stream << " (* " << loss_weight
+                          << " = " << loss_weight * result_vec[k] << " loss)";
         }
+        LOG(INFO) << "    Train net output #"
+            << score_index++ << ": " << output_name << " = "
+            << result_vec[k] << loss_msg_stream.str();
       }
     }
-    ComputeUpdateValue();
-    net_->Update();
+  }
+}
 
-    // Save a snapshot if needed.
-    if (param_.snapshot() && (iter_ + 1) % param_.snapshot() == 0) {
-      Snapshot();
-    }
+template <typename Dtype>
+void Solver<Dtype>::snapshotPhase() {
+  // Save a snapshot if needed.
+  if (param_.snapshot() && (iter_ + 1) % param_.snapshot() == 0) {
+    Snapshot();
+  }
+}
+
+template <typename Dtype>
+void Solver<Dtype>::stepEnd() {
+  stepped++;
+  iter_++;
+}
+
+template <typename Dtype>
+void Solver<Dtype>::OneStep() {
+  testPhase();
+  forwardBackwardPhase();
+  displayPhase();
+  ComputeUpdateValue();
+  net_->Update();
+  snapshotPhase();
+  stepEnd();
+}
+
+
+template <typename Dtype>
+void Solver<Dtype>::Step(int iters) {
+  const int start_iter = iter_;
+  const int stop_iter = iter_ + iters;
+
+  for (int i = 0; i < iters; i++) {
+    OneStep();
   }
 }
 

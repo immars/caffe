@@ -38,7 +38,7 @@ class Solver {
   }
   int iter() { return iter_; }
 
- protected:
+ public:
   // Get the update value for the current iteration.
   virtual void ComputeUpdateValue() = 0;
   // The Solver::Snapshot function implements the basic snapshotting utility
@@ -53,12 +53,27 @@ class Solver {
   virtual void RestoreSolverState(const SolverState& state) = 0;
   void DisplayOutputBlobs(const int net_id);
 
+ protected:
   SolverParameter param_;
   int iter_;
   int current_step_;
   shared_ptr<Net<Dtype> > net_;
   vector<shared_ptr<Net<Dtype> > > test_nets_;
 
+  //smooth loss intermediate data
+  vector<Dtype> losses;
+  Dtype smoothed_loss = 0;
+  int stepped = 0; //times OneStep() invoked
+  inline bool needDisplay(){ return param_.display() && iter_ % param_.display() == 0;}
+
+ public:
+  void OneStep();
+  void testPhase();
+  void forwardBackwardPhase();
+  void displayPhase();
+  void snapshotPhase();
+  void stepEnd();
+  const SolverParameter& param(){return this->param_;};
   DISABLE_COPY_AND_ASSIGN(Solver);
 };
 
