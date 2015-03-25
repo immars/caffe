@@ -60,11 +60,13 @@ class Solver {
   shared_ptr<Net<Dtype> > net_;
   vector<shared_ptr<Net<Dtype> > > test_nets_;
 
-  //smooth loss intermediate data
+  // smooth loss intermediate data
   vector<Dtype> losses;
-  Dtype smoothed_loss = 0;
-  int stepped = 0; //times OneStep() invoked
-  inline bool needDisplay(){ return param_.display() && iter_ % param_.display() == 0;}
+  Dtype smoothed_loss;
+  int stepped;  // times OneStep() invoked
+  inline bool needDisplay() {
+    return param_.display() && iter_ % param_.display() == 0;
+  }
 
  public:
   void OneStep();
@@ -73,7 +75,7 @@ class Solver {
   void displayPhase();
   void snapshotPhase();
   void stepEnd();
-  const SolverParameter& param(){return this->param_;};
+  const SolverParameter& param() {return this->param_;}
   DISABLE_COPY_AND_ASSIGN(Solver);
 };
 
