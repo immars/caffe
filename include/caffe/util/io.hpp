@@ -3,6 +3,8 @@
 
 #include <unistd.h>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "google/protobuf/message.h"
 #include "hdf5.h"
@@ -90,6 +92,9 @@ bool ReadFileToDatum(const string& filename, const int label, Datum* datum);
 inline bool ReadFileToDatum(const string& filename, Datum* datum) {
   return ReadFileToDatum(filename, -1, datum);
 }
+
+void ReadImagesList(const string& source,
+    std::vector<std::pair<std::string, std::vector<int> > >* images_vec);
 
 bool ReadImageToDatum(const string& filename, const int label,
     const int height, const int width, const bool is_color,
