@@ -26,6 +26,7 @@ void SigmoidCrossEntropyLossLayer<Dtype>::Reshape(
   CHECK_EQ(bottom[0]->count(), bottom[1]->count()) <<
       "SIGMOID_CROSS_ENTROPY_LOSS layer inputs must have the same count.";
   sigmoid_layer_->Reshape(sigmoid_bottom_vec_, sigmoid_top_vec_);
+  ignore_labels->ReshapeLike(*bottom[1]);
 }
 
 template <typename Dtype>
@@ -40,12 +41,21 @@ void SigmoidCrossEntropyLossLayer<Dtype>::Forward_cpu(
   // Stable version of loss computation from input data
   const Dtype* input_data = bottom[0]->cpu_data();
   const Dtype* target = bottom[1]->cpu_data();
+  Dtype* ignores = ignore_labels->mutable_cpu_data();
+  num_ignored = 0;
+  for (int i = 0; i< ignore_labels->count(); i++) {
+    ignores[i] = target[i] == -1? 0:1;
+  }
   Dtype loss = 0;
   for (int i = 0; i < count; ++i) {
+    if (target[i] == -1) {
+      num_ignored++;
+      continue;
+    }
     loss -= input_data[i] * (target[i] - (input_data[i] >= 0)) -
         log(1 + exp(input_data[i] - 2 * input_data[i] * (input_data[i] >= 0)));
   }
-  top[0]->mutable_cpu_data()[0] = loss / num;
+  top[0]->mutable_cpu_data()[0] = loss / num * count / (count - num_ignored);
 }
 
 template <typename Dtype>
@@ -67,6 +77,8 @@ void SigmoidCrossEntropyLossLayer<Dtype>::Backward_cpu(
     // Scale down gradient
     const Dtype loss_weight = top[0]->cpu_diff()[0];
     caffe_scal(count, loss_weight / num, bottom_diff);
+    // ignore ignore_labels
+    caffe_mul(count, bottom_diff, ignore_labels->cpu_data(), bottom_diff);
   }
 }
 

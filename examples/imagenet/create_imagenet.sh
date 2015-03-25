@@ -9,6 +9,8 @@ TOOLS=build/tools
 TRAIN_DATA_ROOT=/path/to/imagenet/train/
 VAL_DATA_ROOT=/path/to/imagenet/val/
 
+# true|false
+MULTI_LABEL=false
 # Set RESIZE=true to resize the images to 256x256. Leave as false if images have
 # already been resized using another tool.
 RESIZE=false
@@ -40,6 +42,7 @@ GLOG_logtostderr=1 $TOOLS/convert_imageset \
     --resize_height=$RESIZE_HEIGHT \
     --resize_width=$RESIZE_WIDTH \
     --shuffle \
+    --multilabel=$MULTI_LABEL \
     $TRAIN_DATA_ROOT \
     $DATA/train.txt \
     $EXAMPLE/ilsvrc12_train_lmdb
@@ -50,6 +53,7 @@ GLOG_logtostderr=1 $TOOLS/convert_imageset \
     --resize_height=$RESIZE_HEIGHT \
     --resize_width=$RESIZE_WIDTH \
     --shuffle \
+    --multilabel=$MULTI_LABEL \
     $VAL_DATA_ROOT \
     $DATA/val.txt \
     $EXAMPLE/ilsvrc12_val_lmdb
