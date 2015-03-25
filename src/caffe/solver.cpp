@@ -42,6 +42,7 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
   LOG(INFO) << "Solver scaffolding done.";
   iter_ = 0;
   current_step_ = 0;
+  stepped = 0;
 }
 
 template <typename Dtype>
@@ -237,8 +238,8 @@ void Solver<Dtype>::OneStep() {
 
 template <typename Dtype>
 void Solver<Dtype>::Step(int iters) {
-  const int start_iter = iter_;
-  const int stop_iter = iter_ + iters;
+//  const int start_iter = iter_;
+//  const int stop_iter = iter_ + iters;
 
   for (int i = 0; i < iters; i++) {
     OneStep();
