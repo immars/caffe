@@ -22,7 +22,7 @@ shift
 COUNT=$1 # 4
 shift
 
-if [ ! -d "$SRC_DB" ]; then
+if [ ! -d "$SRC_DB" -a ! -f "$SRC_DB" ]; then
   echo "Error: SRC_DB is not a path to a directory: $SRC_DB"
   echo "Set the SRC_DB variable in partition_imageset.sh to the path" \
        "where the source database is stored."
