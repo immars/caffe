@@ -5,7 +5,7 @@
 TOOLS=build/tools
 
 if [ $# -lt 4 ]; then
-    echo "usage: convert_imageset.sh [leveldb|lmdb|etc.] src_db_path dest_dir count"
+    echo "usage: partition_imageset.sh [leveldb|lmdb|etc.] src_db_path dest_dir count"
     echo "optional parameter: --dest_format=[levedb|lmdb|etc.] # will output as another format."
     exit -1;
 fi
