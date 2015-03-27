@@ -28,6 +28,8 @@ using std::pair;
 using boost::scoped_ptr;
 DEFINE_string(format, "",
         "REQUIRED. The backend {lmdb, leveldb, etc.} for data source");
+DEFINE_string(dest_format, "",
+        "OPTIONAL. The backend for output. default=format");
 DEFINE_string(src_path, "",
         "REQUIRED. data source to be partitioned");
 DEFINE_string(dest_dir, "",
@@ -58,9 +60,15 @@ int main(int argc, char** argv) {
     gflags::ShowUsageWithFlagsRestrict(argv[0], "tools/partition_imageset");
     return 1;
   }
+  if (FLAGS_dest_format == "") {
+    // default to src format
+    FLAGS_dest_format = FLAGS_format;
+  }
   if (FLAGS_src_path[FLAGS_src_path.size()-1] == '/') {
+    // remove trailing '/'
     FLAGS_src_path = FLAGS_src_path.substr(0, FLAGS_src_path.size() - 1);
   }
+
   string base_name = FLAGS_src_path.substr(FLAGS_src_path.rfind("/") + 1);
   LOG(ERROR) << "Original db name:" << base_name;
   // Create new DB
@@ -69,19 +77,29 @@ int main(int argc, char** argv) {
 
   if (FLAGS_size == 0) {
     LOG(ERROR) << "Determine partition size for count:" << FLAGS_count;
-    // scan DB once to get record count, to calc size
-    scoped_ptr<db::Cursor> cursor(src->NewCursor());
-    int total = 0;
-    while (true) {
-      cursor->Next();
-      if (!cursor->valid()) {
-        break;
+    if (FLAGS_count == 1) {
+      LOG(ERROR) << "Only 1 shard, size unlimited";
+      FLAGS_size = INT32_MAX;
+      if (FLAGS_format == FLAGS_dest_format) {
+        LOG(ERROR) << "Output and input will be same! "
+            << "Supply different dest_format, or supply count>1. ";
+        exit(-1);
       }
-      total++;
-    }
-    FLAGS_size = total / FLAGS_count;
-    if (total % FLAGS_count != 0) {
-      FLAGS_size++;
+    } else {
+      // scan DB once to get record count, to calc size
+      scoped_ptr<db::Cursor> cursor(src->NewCursor());
+      int total = 0;
+      while (true) {
+        cursor->Next();
+        if (!cursor->valid()) {
+          break;
+        }
+        total++;
+      }
+      FLAGS_size = total / FLAGS_count;
+      if (total % FLAGS_count != 0) {
+        FLAGS_size++;
+      }
     }
   }
   LOG(ERROR) << "Partition size:" << FLAGS_size;
@@ -92,7 +110,7 @@ int main(int argc, char** argv) {
     buf << FLAGS_dest_dir << "/" << base_name << "_" << partition_id;
     string partition_path = buf.str();
     LOG(ERROR) << "Start partition: " << partition_path;
-    scoped_ptr<db::DB> dest(db::GetDB(FLAGS_format));
+    scoped_ptr<db::DB> dest(db::GetDB(FLAGS_dest_format));
     dest->Open(partition_path, db::NEW);
     scoped_ptr<db::Transaction> txn(dest->NewTransaction());
     for (int data_id = 0; data_id < FLAGS_size; data_id ++) {

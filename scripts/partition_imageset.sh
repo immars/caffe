@@ -1,23 +1,26 @@
 #!/usr/bin/env sh
-# partition a database into several shards
-# N.B. set the path to the imagenet train + val data dirs
+# partition a database into several shards,
+# convert into another format if specified
 
 TOOLS=build/tools
 
 if [ $# -lt 4 ]; then
     echo "usage: convert_imageset.sh [leveldb|lmdb|etc.] src_db_path dest_dir count"
+    echo "optional parameter: --dest_format=[levedb|lmdb|etc.] # will output as another format."
     exit -1;
 fi
 
 # leveldb|lmdb
 FORMAT=$1
-
+shift
 # source database file/dir, NO '/' on tail
-SRC_DB=$2 # /data/ilsvrc12_train_leveldb
-DEST_PATH=$3 # /data/
-
+SRC_DB=$1 # /data/ilsvrc12_train_leveldb
+shift
+DEST_PATH=$1 # /data/
+shift
 # partition count
-COUNT=$4 # 4
+COUNT=$1 # 4
+shift
 
 if [ ! -d "$SRC_DB" ]; then
   echo "Error: SRC_DB is not a path to a directory: $SRC_DB"
@@ -39,6 +42,6 @@ GLOG_logtostderr=1 $TOOLS/partition_imageset \
     --src_path=$SRC_DB \
     --dest_dir=$DEST_PATH \
     --format=$FORMAT \
-    --count=$COUNT
+    --count=$COUNT $@
 
 echo "Done."
