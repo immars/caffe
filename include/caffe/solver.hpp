@@ -126,6 +126,38 @@ class AdaGradSolver : public SGDSolver<Dtype> {
 };
 
 template <typename Dtype>
+class AdaDeltaSolver : public SGDSolver<Dtype> {
+ public:
+  explicit AdaDeltaSolver(const SolverParameter& param)
+      : SGDSolver<Dtype>(param) {
+    constructor_sanity_check();
+    InitHistory();
+  }
+  explicit AdaDeltaSolver(const string& param_file)
+      : SGDSolver<Dtype>(param_file) {
+    constructor_sanity_check();
+    InitHistory();
+  }
+
+ protected:
+  void InitHistory();
+  virtual void ComputeUpdateValue();
+  virtual void SnapshotSolverState(SolverState * state);
+  virtual void RestoreSolverState(const SolverState& state);
+
+  void constructor_sanity_check() {
+  }
+
+  // history_ for momentum
+  // rmsx for rmsx
+  // rmsg for rmsg
+
+  vector<shared_ptr<Blob<Dtype> > > rmsx_, rmsg_;
+
+  DISABLE_COPY_AND_ASSIGN(AdaDeltaSolver);
+};
+
+template <typename Dtype>
 Solver<Dtype>* GetSolver(const SolverParameter& param) {
   SolverParameter_SolverType type = param.solver_type();
 
