@@ -832,7 +832,7 @@ void AdaDeltaSolver<Dtype>::InitHistory() {
 }
 
 template <typename Dtype>
-void AdaDeltaSolver<Dtype>::SnapshotSolverState(SolverState * state){
+void AdaDeltaSolver<Dtype>::SnapshotSolverState(SolverState * state) {
   SGDSolver<Dtype>::SnapshotSolverState(state);
   // history2 for rmsx
   state->clear_history2();
@@ -844,11 +844,14 @@ void AdaDeltaSolver<Dtype>::SnapshotSolverState(SolverState * state){
     buf = state->add_history3();
     rmsg_[i]->ToProto(buf);
   }
-
 }
+
 template <typename Dtype>
-void AdaDeltaSolver<Dtype>::RestoreSolverState(const SolverState& state){
+void AdaDeltaSolver<Dtype>::RestoreSolverState(const SolverState& state) {
   SGDSolver<Dtype>::RestoreSolverState(state);
+  if (state.history2_size() == 0 || state.history3_size() == 0) {
+    LOG(WARNING) << "try compatible when rmsx/rmsg not available";
+  }
   CHECK_EQ(state.history2_size(), rmsx_.size())
       << "Incorrect length of rmsx blobs.";
   CHECK_EQ(state.history3_size(), rmsg_.size())
@@ -858,7 +861,6 @@ void AdaDeltaSolver<Dtype>::RestoreSolverState(const SolverState& state){
     rmsg_[i]->FromProto(state.history3(i));
   }
 }
-
 
 template <typename Dtype>
 void AdaDeltaSolver<Dtype>::ComputeUpdateValue() {
@@ -915,12 +917,12 @@ void AdaDeltaSolver<Dtype>::ComputeUpdateValue() {
           net_params[param_id]->cpu_diff(), Dtype(2),
           this->update_[param_id]->mutable_cpu_data());
 
-      //E(g^2)
+      // E(g^2)
       caffe_cpu_axpby(count, (1 - rms_decay),
           this->update_[param_id]->cpu_data(), rms_decay,
           this->rmsg_[param_id]->mutable_cpu_data());
 
-      //RMS(g): sqrt(E(g^2)+delta)
+      // RMS(g): sqrt(E(g^2)+delta)
       caffe_copy(count, rmsg_[param_id]->cpu_data(),
           this->temp_[param_id]->mutable_cpu_data());
       caffe_add_scalar(count, delta,
@@ -928,7 +930,7 @@ void AdaDeltaSolver<Dtype>::ComputeUpdateValue() {
       caffe_powx(count, this->temp_[param_id]->cpu_data(), Dtype(0.5),
           this->temp_[param_id]->mutable_cpu_data());
 
-      //RMS(x): sqrt(E(x^2)+delta)
+      // RMS(x): sqrt(E(x^2)+delta)
       caffe_copy(count, rmsx_[param_id]->cpu_data(),
           this->update_[param_id]->mutable_cpu_data());
       caffe_add_scalar(count, delta,
@@ -936,16 +938,17 @@ void AdaDeltaSolver<Dtype>::ComputeUpdateValue() {
       caffe_powx(count, this->update_[param_id]->cpu_data(), Dtype(0.5),
           this->update_[param_id]->mutable_cpu_data());
 
-      //effective learning rate: RMS(x)/RMS(g)
+      // effective learning rate: RMS(x)/RMS(g)
       caffe_div(count, this->update_[param_id]->cpu_data(),
-          this->temp_[param_id]->cpu_data(), this->update_[param_id]->mutable_cpu_data());
+          this->temp_[param_id]->cpu_data(),
+          this->update_[param_id]->mutable_cpu_data());
 
-      //D(x) = (effective learning_rate) * momentum
+      // D(x) = (effective learning_rate) * momentum
       caffe_mul(count, this->update_[param_id]->cpu_data(),
            this->history_[param_id]->cpu_data(),
            net_params[param_id]->mutable_cpu_diff());
 
-      //E(x^2)
+      // E(x^2)
       caffe_powx(count,
         net_params[param_id]->cpu_diff(), Dtype(2),
         this->temp_[param_id]->mutable_cpu_data());
@@ -995,12 +998,12 @@ void AdaDeltaSolver<Dtype>::ComputeUpdateValue() {
           net_params[param_id]->gpu_diff(), Dtype(2),
           this->update_[param_id]->mutable_gpu_data());
 
-      //E(g^2)
+      // E(g^2)
       caffe_gpu_axpby(count, (1 - rms_decay),
           this->update_[param_id]->gpu_data(), rms_decay,
           this->rmsg_[param_id]->mutable_gpu_data());
 
-      //RMS(g): sqrt(E(g^2)+delta)
+      // RMS(g): sqrt(E(g^2)+delta)
       caffe_copy(count, rmsg_[param_id]->gpu_data(),
           this->temp_[param_id]->mutable_gpu_data());
       caffe_gpu_add_scalar(count, delta,
@@ -1008,7 +1011,7 @@ void AdaDeltaSolver<Dtype>::ComputeUpdateValue() {
       caffe_gpu_powx(count, this->temp_[param_id]->gpu_data(), Dtype(0.5),
           this->temp_[param_id]->mutable_gpu_data());
 
-      //RMS(x): sqrt(E(x^2)+delta)
+      // RMS(x): sqrt(E(x^2)+delta)
       caffe_copy(count, rmsx_[param_id]->gpu_data(),
           this->update_[param_id]->mutable_gpu_data());
       caffe_gpu_add_scalar(count, delta,
@@ -1016,23 +1019,23 @@ void AdaDeltaSolver<Dtype>::ComputeUpdateValue() {
       caffe_gpu_powx(count, this->update_[param_id]->gpu_data(), Dtype(0.5),
           this->update_[param_id]->mutable_gpu_data());
 
-      //effective learning rate: RMS(x)/RMS(g)
+      // effective learning rate: RMS(x)/RMS(g)
       caffe_gpu_div(count, this->update_[param_id]->gpu_data(),
-          this->temp_[param_id]->gpu_data(), this->update_[param_id]->mutable_gpu_data());
+          this->temp_[param_id]->gpu_data(),
+          this->update_[param_id]->mutable_gpu_data());
 
-      //D(x) = (effective learning_rate) * momentum
+      // D(x) = (effective learning_rate) * momentum
       caffe_gpu_mul(count, this->update_[param_id]->gpu_data(),
           this->history_[param_id]->gpu_data(),
            net_params[param_id]->mutable_gpu_diff());
 
-      //E(x^2)
+      // E(x^2)
       caffe_gpu_powx(count,
         net_params[param_id]->gpu_diff(), Dtype(2),
         this->temp_[param_id]->mutable_gpu_data());
       caffe_gpu_axpby(count, (1 - rms_decay),
         this->temp_[param_id]->gpu_data(), rms_decay,
         this->rmsx_[param_id]->mutable_gpu_data());
-
     }
 #else
     NO_GPU;
