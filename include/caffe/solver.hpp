@@ -37,6 +37,9 @@ class Solver {
     return test_nets_;
   }
   int iter() { return iter_; }
+  int current_step() { return current_step_; }
+  void setIter(int iter) { iter_ = iter; }
+  void setCurrentStep(int step) { current_step_ = step; }
 
  public:
   // Get the update value for the current iteration.
