@@ -179,8 +179,13 @@ void Solver<Dtype>::forwardBackwardPhase() {
     smoothed_loss = (smoothed_loss * (size - 1) + loss) / size;
   } else {
     int idx = (stepped) % average_loss;
-    smoothed_loss += (loss - losses[idx]) / average_loss;
+//    smoothed_loss += (loss - losses[idx]) / average_loss;
     losses[idx] = loss;
+    smoothed_loss = 0;
+    for (int i = 0; i < losses.size(); i++){
+      smoothed_loss += losses[i];
+    }
+    smoothed_loss /= average_loss;
   }
 }
 
