@@ -44,7 +44,10 @@ void SigmoidCrossEntropyLossLayer<Dtype>::Forward_cpu(
   Dtype* ignores = ignore_labels->mutable_cpu_data();
   num_ignored = 0;
   for (int i = 0; i< ignore_labels->count(); i++) {
-    ignores[i] = target[i] == -1? 0:1;
+    // -1: do not backward(x0)
+    // 0: backward as normal(x1)
+    // 1: backward as boosted(x10)
+    ignores[i] = target[i] == -1? 0:target[i] == 0?1:10;
   }
   Dtype loss = 0;
   for (int i = 0; i < count; ++i) {

@@ -652,7 +652,7 @@ class SigmoidCrossEntropyLossLayer : public LossLayer<Dtype> {
   vector<Blob<Dtype>*> sigmoid_bottom_vec_;
   /// top vector holder to call the underlying SigmoidLayer::Forward
   vector<Blob<Dtype>*> sigmoid_top_vec_;
-  /// vector indicating -1: which label is unknown
+  /// vector indicating -1: which label is unknown;
   shared_ptr<Blob<Dtype> > ignore_labels;
   /// count for ignored labels
   int num_ignored;
