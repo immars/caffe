@@ -182,6 +182,7 @@ message SolverParameter {
     NESTEROV = 1;
     ADAGRAD = 2;
     ADADELTA = 3;
+    ADAMON = 4;	// AdaGrad with momentum
   }
   optional SolverType solver_type = 30 [default = SGD];
   // numerical stability for AdaGrad
