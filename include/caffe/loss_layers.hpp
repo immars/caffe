@@ -660,7 +660,7 @@ class SigmoidCrossEntropyLossLayer : public LossLayer<Dtype> {
 
 template <typename Dtype>
 class SigmoidCrossEntropyAccuracyLayer : public AccuracyLayer<Dtype> {
-public:
+ public:
  /**
   * @param param provides AccuracyParameter accuracy_param,
   *     with AccuracyLayer options:
@@ -669,28 +669,31 @@ public:
   *     correct.  For example, if @f$ k = 5 @f$, a prediction is counted
   *     correct if the correct label is among the top 5 predicted labels.
   */
- explicit SigmoidCrossEntropyAccuracyLayer(const LayerParameter& param)
-     : AccuracyLayer<Dtype>(param) {}
- virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
-     const vector<Blob<Dtype>*>& top);
- virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
-     const vector<Blob<Dtype>*>& top);
+    explicit SigmoidCrossEntropyAccuracyLayer(const LayerParameter& param)
+       : AccuracyLayer<Dtype>(param) {}
+    virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+       const vector<Blob<Dtype>*>& top);
+    virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
+       const vector<Blob<Dtype>*>& top);
 
- virtual inline const char* type() const { return "SigmoidCrossEntropyAccuracy"; }
- virtual inline int ExactNumBottomBlobs() const { return 2; }
- virtual inline int ExactNumTopBlobs() const { return 1; }
+    virtual inline const char* type() const {
+      return "SigmoidCrossEntropyAccuracy";
+    }
+    virtual inline int ExactNumBottomBlobs() const { return 2; }
+    virtual inline int ExactNumTopBlobs() const { return 1; }
 
- virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
-     const vector<Blob<Dtype>*>& top);
+    virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+       const vector<Blob<Dtype>*>& top);
 
 
- /// @brief Not implemented -- AccuracyLayer cannot be used as a loss.
- virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
-     const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-   for (int i = 0; i < propagate_down.size(); ++i) {
-     if (propagate_down[i]) { NOT_IMPLEMENTED; }
-   }
- }
+    // @brief Not implemented -- AccuracyLayer cannot be used as a loss.
+    virtual void Backward_cpu(const vector<Blob<Dtype>*>& top,
+        const vector<bool>& propagate_down,
+        const vector<Blob<Dtype>*>& bottom) {
+      for (int i = 0; i < propagate_down.size(); ++i) {
+        if (propagate_down[i]) { NOT_IMPLEMENTED; }
+      }
+    }
 };
 
 // Forward declare SoftmaxLayer for use in SoftmaxWithLossLayer.

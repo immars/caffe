@@ -25,7 +25,8 @@ void SigmoidCrossEntropyAccuracyLayer<Dtype>::Reshape(
 }
 
 template <typename Dtype>
-void SigmoidCrossEntropyAccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+void SigmoidCrossEntropyAccuracyLayer<Dtype>::Forward_cpu(
+    const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   Dtype accuracy = 0;
   const Dtype* bottom_data = bottom[0]->cpu_data();
