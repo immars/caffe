@@ -194,7 +194,7 @@ namespace caffe {
           image_ptr[j][1] = applyNormalizeNoise(
               image_ptr[j][1], ptr[j][1] * chosen);
           image_ptr[j][2] = applyNormalizeNoise(
-              image_ptr[j][1], ptr[j][1] * chosen);
+              image_ptr[j][2], ptr[j][2] * chosen);
         }
       }
     }
