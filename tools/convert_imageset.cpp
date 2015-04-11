@@ -41,6 +41,8 @@ DEFINE_bool(encoded, false,
     "When this option is on, the encoded image will be save in datum");
 DEFINE_string(encode_type, "",
     "Optional: What type should we encode the image as ('png','jpg',...).");
+DEFINE_bool(multilabel, false,
+    "Optional: What type should we encode the image as ('png','jpg',...).");
 
 int main(int argc, char** argv) {
   ::google::InitGoogleLogging(argv[0]);
@@ -67,17 +69,30 @@ int main(int argc, char** argv) {
   const bool encoded = FLAGS_encoded;
   const string encode_type = FLAGS_encode_type;
 
-  std::ifstream infile(argv[2]);
-  std::vector<std::pair<std::string, int> > lines;
-  std::string filename;
-  int label;
-  while (infile >> filename >> label) {
-    lines.push_back(std::make_pair(filename, label));
-  }
+//  std::ifstream infile(argv[2]);
+//  std::vector<std::pair<std::string, int> > lines;
+//  std::string filename;
+  std::string output_path = argv[3];
+//  int label;
+//  std::vector<int> labels;
+  std::vector<std::pair<std::string, std::vector<int> > > lines;
+  ReadImagesList(argv[2], &lines);
+
+//  while (infile >> filename >> label) {
+//    lines.push_back(std::make_pair(filename, label));
+//  }
   if (FLAGS_shuffle) {
     // randomly shuffle data
     LOG(INFO) << "Shuffling data";
     shuffle(lines.begin(), lines.end());
+  }
+  scoped_ptr<db::DB> label_db;
+  scoped_ptr<db::Transaction> label_txn;
+  Datum label_datum;
+  if (FLAGS_multilabel) {
+      label_db.reset(db::GetDB(FLAGS_backend));
+      label_db->Open(output_path+"_label", db::NEW);
+      label_txn.reset(label_db->NewTransaction());
   }
   LOG(INFO) << "A total of " << lines.size() << " images.";
 
@@ -89,7 +104,7 @@ int main(int argc, char** argv) {
 
   // Create new DB
   scoped_ptr<db::DB> db(db::GetDB(FLAGS_backend));
-  db->Open(argv[3], db::NEW);
+  db->Open(output_path, db::NEW);
   scoped_ptr<db::Transaction> txn(db->NewTransaction());
 
   // Storing to db
@@ -113,9 +128,16 @@ int main(int argc, char** argv) {
       enc = fn.substr(p);
       std::transform(enc.begin(), enc.end(), enc.begin(), ::tolower);
     }
-    status = ReadImageToDatum(root_folder + lines[line_id].first,
-        lines[line_id].second, resize_height, resize_width, is_color,
-        enc, &datum);
+    if (FLAGS_multilabel) {
+      // ignore datum label
+      status = ReadImageToDatum(root_folder + lines[line_id].first,
+               0, resize_height, resize_width, is_color,
+               enc, &datum);
+    } else {
+      status = ReadImageToDatum(root_folder + lines[line_id].first,
+               lines[line_id].second[0], resize_height, resize_width, is_color,
+               enc, &datum);
+    }
     if (status == false) continue;
     if (check_size) {
       if (!data_size_initialized) {
@@ -135,17 +157,39 @@ int main(int argc, char** argv) {
     string out;
     CHECK(datum.SerializeToString(&out));
     txn->Put(string(key_cstr, length), out);
-
+    // handle multilabel
+    if (FLAGS_multilabel) {
+      vector<int> labels = lines[line_id].second;
+      label_datum.set_label(0);
+      out.resize(labels.size());
+      label_datum.clear_data();
+      label_datum.clear_float_data();
+      for (int i = 0; i < labels.size(); i++) {
+        label_datum.add_float_data(labels[i]);
+      }
+      label_datum.set_channels(labels.size());
+      label_datum.set_height(1);
+      label_datum.set_width(1);
+      CHECK(label_datum.SerializeToString(&out));
+      label_txn->Put(string(key_cstr, length), out);
+    }
     if (++count % 1000 == 0) {
       // Commit db
       txn->Commit();
       txn.reset(db->NewTransaction());
+      if (FLAGS_multilabel) {
+        label_txn->Commit();
+        label_txn.reset(label_db->NewTransaction());
+      }
       LOG(ERROR) << "Processed " << count << " files.";
     }
   }
   // write the last batch
   if (count % 1000 != 0) {
     txn->Commit();
+    if (FLAGS_multilabel) {
+      label_txn->Commit();
+    }
     LOG(ERROR) << "Processed " << count << " files.";
   }
   return 0;

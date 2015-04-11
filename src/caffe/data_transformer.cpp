@@ -1,12 +1,39 @@
 #include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_real.hpp>
+#include <boost/random/variate_generator.hpp>
+
+#include <algorithm>
+#include <numeric>
 #include <string>
 #include <vector>
 
 #include "caffe/data_transformer.hpp"
+#include "caffe/util/im_transforms.hpp"
 #include "caffe/util/io.hpp"
 #include "caffe/util/math_functions.hpp"
 #include "caffe/util/rng.hpp"
+
+
+
+boost::mt19937 gen;
+const double prob_eps = 0.01;
+
+int roll_weighted_die(const std::vector<double> probabilities) {
+  std::vector<double> cumulative;
+  std::partial_sum(&probabilities[0], &probabilities[0] + probabilities.size(),
+      std::back_inserter(cumulative));
+  boost::uniform_real<> dist(0, cumulative.back());
+  boost::variate_generator<boost::mt19937&,
+      boost::uniform_real<> > die(gen, dist);
+
+  // Find the position within the sequence and add 1
+  return (std::lower_bound(cumulative.begin(), cumulative.end(), die())
+      - cumulative.begin());
+}
 
 namespace caffe {
 
@@ -249,10 +276,10 @@ void DataTransformer<Dtype>::Transform(const vector<cv::Mat> & mat_vector,
 
 template<typename Dtype>
 void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
-                                       Blob<Dtype>* transformed_blob) {
+    Blob<Dtype>* transformed_blob) {
   const int img_channels = cv_img.channels();
-  const int img_height = cv_img.rows;
-  const int img_width = cv_img.cols;
+  int img_height = cv_img.rows;
+  int img_width = cv_img.cols;
 
   const int channels = transformed_blob->channels();
   const int height = transformed_blob->height();
@@ -260,33 +287,71 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
   const int num = transformed_blob->num();
 
   CHECK_EQ(channels, img_channels);
-  CHECK_LE(height, img_height);
-  CHECK_LE(width, img_width);
   CHECK_GE(num, 1);
 
   CHECK(cv_img.depth() == CV_8U) << "Image data type must be unsigned byte";
 
+
   const int crop_size = param_.crop_size();
   const Dtype scale = param_.scale();
   const bool do_mirror = param_.mirror() && Rand(2);
+  const bool do_vert_mirror = param_.vertical_mirror() && Rand(2);
   const bool has_mean_file = param_.has_mean_file();
   const bool has_mean_values = mean_values_.size() > 0;
   const bool has_eigen_values = eigen_values_.size() > 0;
+  const int rotation_count = (param_.random_90_deg_rot()) ? Rand(4) : 0;
+  cv::Mat cv_resized_image, cv_noised_image, cv_cropped_image;
+
+  const int num_resize_policies = param_.resize_param_size();
+  const int num_noise_policies = param_.noise_param_size();
+
+  if (num_resize_policies > 0) {
+    std::vector<double> probabilities;
+    double prob_sum = 0;
+    for (int i = 0; i < num_resize_policies; i++) {
+      const double prob = param_.resize_param(i).prob();
+      CHECK_GE(prob, 0);
+      CHECK_LE(prob, 1);
+      prob_sum+=prob;
+      probabilities.push_back(prob);
+    }
+    CHECK_NEAR(prob_sum, 1.0, prob_eps);
+    int policy_num = roll_weighted_die(probabilities);
+    cv_resized_image = ApplyResize(cv_img, param_.resize_param(policy_num));
+  } else {
+    cv_resized_image = cv_img;
+  }
+
+  if (num_noise_policies > 0) {
+    std::vector<double> probabilities;
+    double prob_sum = 0;
+    for (unsigned int i = 0; i < num_noise_policies; i++) {
+      const double prob = param_.noise_param(i).prob();
+      CHECK_GE(prob, 0);
+      CHECK_LE(prob, 1);
+      prob_sum+=prob;
+      probabilities.push_back(prob);
+    }
+    CHECK_NEAR(prob_sum, 1.0, prob_eps);
+    int policy_num = roll_weighted_die(probabilities);
+    cv_noised_image = ApplyNoise(cv_resized_image,
+        param_.noise_param(policy_num));
+
+  } else {
+    cv_noised_image = cv_resized_image;
+  }
 
   CHECK_GT(img_channels, 0);
-  CHECK_GE(img_height, crop_size);
-  CHECK_GE(img_width, crop_size);
 
   Dtype* mean = NULL;
   if (has_mean_file) {
     CHECK_EQ(img_channels, data_mean_.channels());
-    CHECK_EQ(img_height, data_mean_.height());
-    CHECK_EQ(img_width, data_mean_.width());
     mean = data_mean_.mutable_cpu_data();
   }
   if (has_mean_values) {
-    CHECK(mean_values_.size() == 1 || mean_values_.size() == img_channels) <<
-     "Specify either 1 mean_value or as many as channels: " << img_channels;
+    CHECK(mean_values_.size() == 1 ||
+        mean_values_.size() == img_channels) <<
+   "Specify either 1 mean_value or as many as channels: " << img_channels;
     if (img_channels > 1 && mean_values_.size() == 1) {
       // Replicate the mean_value for simplicity
       for (int c = 1; c < img_channels; ++c) {
@@ -316,6 +381,7 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
       relight_alpha.cpu_data(), (Dtype) 0, relight_.mutable_cpu_data());
   }
 
+
   int h_off = 0;
   int w_off = 0;
   cv::Mat cv_cropped_img = cv_img;
@@ -331,36 +397,59 @@ void DataTransformer<Dtype>::Transform(const cv::Mat& cv_img,
       w_off = (img_width - crop_size) / 2;
     }
     cv::Rect roi(w_off, h_off, crop_size, crop_size);
-    cv_cropped_img = cv_img(roi);
+    cv_cropped_image = cv_noised_image(roi);
   } else {
-    CHECK_EQ(img_height, height);
-    CHECK_EQ(img_width, width);
+    cv_cropped_image = cv_noised_image;
   }
 
-  CHECK(cv_cropped_img.data);
+  CHECK_EQ(cv_cropped_image.rows, height);
+  CHECK_EQ(cv_cropped_image.cols, width);
+  if (has_mean_file) {
+    CHECK_EQ(cv_cropped_image.rows, data_mean_.height());
+    CHECK_EQ(cv_cropped_image.cols, data_mean_.width());
+  }
+  CHECK(cv_cropped_image.data);
 
   Dtype* transformed_data = transformed_blob->mutable_cpu_data();
   int top_index;
   for (int h = 0; h < height; ++h) {
-    const uchar* ptr = cv_cropped_img.ptr<uchar>(h);
+    const uchar* ptr = cv_cropped_image.ptr<uchar>(h);
     int img_index = 0;
+    int h_idx = h;
+    if (do_vert_mirror) {
+      h_idx = height - 1 - h;
+    }
     for (int w = 0; w < width; ++w) {
+      int w_idx = w;
+      if (do_mirror) {
+        w_idx = (width - 1 - w);
+      }
+      int h_idx_real = h_idx;
+      int w_idx_real = w_idx;
+      if (rotation_count == 1) {
+        int temp = w_idx_real;
+        w_idx_real = height - 1 - h_idx_real;
+        h_idx_real = temp;
+      } else if (rotation_count == 2) {
+        w_idx_real = width - 1 - w_idx_real;
+        h_idx_real = height - 1 - h_idx_real;
+      } else if (rotation_count == 3) {
+        int temp = h_idx_real;
+        h_idx_real = width - 1 - w_idx_real;
+        w_idx_real = temp;
+      }
       for (int c = 0; c < img_channels; ++c) {
-        if (do_mirror) {
-          top_index = (c * height + h) * width + (width - 1 - w);
-        } else {
-          top_index = (c * height + h) * width + w;
-        }
-        // int top_index = (c * height + h) * width + w;
+        top_index = (c * height + h_idx_real) * width + w_idx_real;
         Dtype pixel = static_cast<Dtype>(ptr[img_index++]);
         if (has_mean_file) {
-          int mean_index = (c * img_height + h_off + h) * img_width + w_off + w;
+          int mean_index = (c * img_height + h_off + h_idx_real) * img_width
+              + w_off + w_idx_real;
           transformed_data[top_index] =
-            (pixel - mean[mean_index]) * scale;
+              (pixel - mean[mean_index]) * scale;
         } else {
           if (has_mean_values) {
             transformed_data[top_index] =
-              (pixel - mean_values_[c]) * scale;
+                (pixel - mean_values_[c]) * scale;
           } else {
             transformed_data[top_index] = pixel * scale;
           }

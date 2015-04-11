@@ -37,8 +37,11 @@ class Solver {
     return test_nets_;
   }
   int iter() { return iter_; }
+  int current_step() { return current_step_; }
+  void setIter(int iter) { iter_ = iter; }
+  void setCurrentStep(int step) { current_step_ = step; }
 
- protected:
+ public:
   // Get the update value for the current iteration.
   virtual void ComputeUpdateValue() = 0;
   // The Solver::Snapshot function implements the basic snapshotting utility
@@ -53,12 +56,29 @@ class Solver {
   virtual void RestoreSolverState(const SolverState& state) = 0;
   void DisplayOutputBlobs(const int net_id);
 
+ protected:
   SolverParameter param_;
   int iter_;
   int current_step_;
   shared_ptr<Net<Dtype> > net_;
   vector<shared_ptr<Net<Dtype> > > test_nets_;
 
+  // smooth loss intermediate data
+  vector<Dtype> losses;
+  Dtype smoothed_loss;
+  int stepped;  // times OneStep() invoked
+  inline bool needDisplay() {
+    return param_.display() && iter_ % param_.display() == 0;
+  }
+
+ public:
+  void OneStep();
+  void testPhase();
+  void forwardBackwardPhase();
+  void displayPhase();
+  void snapshotPhase();
+  void stepEnd();
+  const SolverParameter& param() {return this->param_;}
   DISABLE_COPY_AND_ASSIGN(Solver);
 };
 
@@ -126,6 +146,68 @@ class AdaGradSolver : public SGDSolver<Dtype> {
 };
 
 template <typename Dtype>
+class AdaDeltaSolver : public SGDSolver<Dtype> {
+ public:
+  explicit AdaDeltaSolver(const SolverParameter& param)
+      : SGDSolver<Dtype>(param) {
+    constructor_sanity_check();
+    InitHistory();
+  }
+  explicit AdaDeltaSolver(const string& param_file)
+      : SGDSolver<Dtype>(param_file) {
+    constructor_sanity_check();
+    InitHistory();
+  }
+
+ protected:
+  void InitHistory();
+  virtual void ComputeUpdateValue();
+  virtual void SnapshotSolverState(SolverState * state);
+  virtual void RestoreSolverState(const SolverState& state);
+
+  void constructor_sanity_check() {
+  }
+
+  // history_ for momentum
+  // rmsx for rmsx
+  // rmsg for rmsg
+
+  vector<shared_ptr<Blob<Dtype> > > rmsx_, rmsg_;
+
+  DISABLE_COPY_AND_ASSIGN(AdaDeltaSolver);
+};
+template <typename Dtype>
+class AdaMomentumSolver : public SGDSolver<Dtype> {
+ public:
+  explicit AdaMomentumSolver(const SolverParameter& param)
+      : SGDSolver<Dtype>(param) {
+    constructor_sanity_check();
+    InitHistory();
+  }
+  explicit AdaMomentumSolver(const string& param_file)
+      : SGDSolver<Dtype>(param_file) {
+    constructor_sanity_check();
+    InitHistory();
+  }
+
+ protected:
+  void InitHistory();
+  virtual void ComputeUpdateValue();
+  virtual void SnapshotSolverState(SolverState * state);
+  virtual void RestoreSolverState(const SolverState& state);
+
+  void constructor_sanity_check() {
+  }
+
+  // history_ for momentum
+  // rmsg for rmsg
+
+  vector<shared_ptr<Blob<Dtype> > > rmsg_;
+
+  DISABLE_COPY_AND_ASSIGN(AdaMomentumSolver);
+};
+
+template <typename Dtype>
 Solver<Dtype>* GetSolver(const SolverParameter& param) {
   SolverParameter_SolverType type = param.solver_type();
 
@@ -136,6 +218,10 @@ Solver<Dtype>* GetSolver(const SolverParameter& param) {
       return new NesterovSolver<Dtype>(param);
   case SolverParameter_SolverType_ADAGRAD:
       return new AdaGradSolver<Dtype>(param);
+  case SolverParameter_SolverType_ADADELTA:
+      return new AdaDeltaSolver<Dtype>(param);
+  case SolverParameter_SolverType_ADAMON:
+      return new AdaMomentumSolver<Dtype>(param);
   default:
       LOG(FATAL) << "Unknown SolverType: " << type;
   }
