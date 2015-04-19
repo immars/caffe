@@ -2,7 +2,6 @@
 #define CAFFE_COMMON_HPP_
 
 #include <boost/shared_ptr.hpp>
-#include <boost/thread/tss.hpp>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
@@ -99,12 +98,7 @@ void GlobalInit(int* pargc, char*** pargv);
 class Caffe {
  public:
   ~Caffe();
-  inline static Caffe& Get() {
-    if (!singleton_.get()) {
-      singleton_.reset(new Caffe());
-    }
-    return *singleton_;
-  }
+  static Caffe& Get();
   enum Brew { CPU, GPU };
 
   // This random number generator facade hides boost and CUDA rng
@@ -159,7 +153,6 @@ class Caffe {
   shared_ptr<RNG> random_generator_;
 
   Brew mode_;
-  static boost::thread_specific_ptr<Caffe> singleton_;
 
  private:
   // The private constructor to avoid duplicate instantiation.

@@ -1,3 +1,4 @@
+#include <boost/thread/tss.hpp>
 #include <glog/logging.h>
 #include <cstdio>
 #include <ctime>
@@ -7,7 +8,14 @@
 
 namespace caffe {
 
-boost::thread_specific_ptr<Caffe> Caffe::singleton_;
+static boost::thread_specific_ptr<Caffe> singleton_;
+
+Caffe& Caffe::Get() {
+  if (!singleton_.get()) {
+    singleton_.reset(new Caffe());
+  }
+  return *singleton_;
+}
 
 // random seeding
 int64_t cluster_seedgen(void) {
