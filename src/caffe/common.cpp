@@ -100,6 +100,7 @@ Caffe::Caffe()
   if (cublasCreate(&cublas_handle_) != CUBLAS_STATUS_SUCCESS) {
     LOG(ERROR) << "Cannot create Cublas handle. Cublas won't be available.";
   }
+  CUBLAS_CHECK(cublasSetStream(cublas_handle_, cudaStreamPerThread));
   // Try to create a curand handler.
   if (curandCreateGenerator(&curand_generator_, CURAND_RNG_PSEUDO_DEFAULT)
       != CURAND_STATUS_SUCCESS ||
@@ -148,6 +149,7 @@ void Caffe::SetDevice(const int device_id) {
     CURAND_CHECK(curandDestroyGenerator(Get().curand_generator_));
   }
   CUBLAS_CHECK(cublasCreate(&Get().cublas_handle_));
+  CUBLAS_CHECK(cublasSetStream(Get().cublas_handle_, cudaStreamPerThread));
   CURAND_CHECK(curandCreateGenerator(&Get().curand_generator_,
       CURAND_RNG_PSEUDO_DEFAULT));
   CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(Get().curand_generator_,
