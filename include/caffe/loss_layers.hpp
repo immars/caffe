@@ -670,7 +670,9 @@ class SigmoidCrossEntropyAccuracyLayer : public AccuracyLayer<Dtype> {
   *     correct if the correct label is among the top 5 predicted labels.
   */
     explicit SigmoidCrossEntropyAccuracyLayer(const LayerParameter& param)
-       : AccuracyLayer<Dtype>(param) {}
+       : AccuracyLayer<Dtype>(param),
+         sigmoid_layer_(new SigmoidLayer<Dtype>(param)),
+         sigmoid_output_(new Blob<Dtype>()){}
     virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
        const vector<Blob<Dtype>*>& top);
     virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
@@ -694,6 +696,16 @@ class SigmoidCrossEntropyAccuracyLayer : public AccuracyLayer<Dtype> {
         if (propagate_down[i]) { NOT_IMPLEMENTED; }
       }
     }
+
+    /// The internal SigmoidLayer used to map predictions to probabilities.
+    shared_ptr<SigmoidLayer<Dtype> > sigmoid_layer_;
+    /// sigmoid_output stores the output of the SigmoidLayer.
+    shared_ptr<Blob<Dtype> > sigmoid_output_;
+    /// bottom vector holder to call the underlying SigmoidLayer::Forward
+    vector<Blob<Dtype>*> sigmoid_bottom_vec_;
+    /// top vector holder to call the underlying SigmoidLayer::Forward
+    vector<Blob<Dtype>*> sigmoid_top_vec_;
+
 };
 
 // Forward declare SoftmaxLayer for use in SoftmaxWithLossLayer.
