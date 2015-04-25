@@ -86,7 +86,7 @@ TYPED_TEST(SigmoidCrossEntropyAccuracyLayerTest, TestForwardCPU) {
 
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
-  EXPECT_NEAR(this->blob_top_->data_at(0, 0, 0, 0), 0.5, 0.05);
+  EXPECT_LT(this->blob_top_->data_at(0, 0, 0, 0), 0.5);
 
   TypeParam* label_data = this->blob_bottom_label_->mutable_cpu_data();
   for (int i = 0; i < this->blob_bottom_label_->count(); ++i) {
@@ -94,7 +94,7 @@ TYPED_TEST(SigmoidCrossEntropyAccuracyLayerTest, TestForwardCPU) {
   }
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
-  EXPECT_NEAR(this->blob_top_->data_at(0, 0, 0, 0), 0.5, 0.05);
+  EXPECT_LT(this->blob_top_->data_at(0, 0, 0, 0), 0.5);
 
   FillerParameter filler_param;
   filler_param.set_max(1);
@@ -105,7 +105,7 @@ TYPED_TEST(SigmoidCrossEntropyAccuracyLayerTest, TestForwardCPU) {
 
   layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
   layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
-  EXPECT_NEAR(this->blob_top_->data_at(0, 0, 0, 0), 0.625, 0.05);
+  EXPECT_LT(this->blob_top_->data_at(0, 0, 0, 0), 0.625);
 }
 
 }  // namespace caffe
