@@ -50,8 +50,8 @@ int main(int argc, char** argv) {
 
   gflags::SetUsageMessage("partition datum images db into several shards.\n"
         "Usage:\n"
-        "    partition_imageset --src_format={} --src_path={} "
-        "--dest_dir={} --count={}|--size={}\n");
+        "    partition_imageset --format={} --src_path={} "
+        "--dest_dir={} --dest_format={} --count={}|--size={}\n");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   if (FLAGS_src_path == "" || FLAGS_format == ""
