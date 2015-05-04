@@ -48,9 +48,9 @@ void SigmoidCrossEntropyAccuracyLayer<Dtype>::Forward_cpu(
     }
     count++;
     accuracy += (bottom_label[i] == 0) * (sigmoid_output_data[i] < 0.5)
-        * (1 - sigmoid_output_data[i])
+        * (0.5 - sigmoid_output_data[i]) * 2
         + (bottom_label[i] == 1) * (sigmoid_output_data[i] >= 0.5)
-        * sigmoid_output_data[i];
+        * (sigmoid_output_data[i] - 0.5) * 2;
   }
 
   // LOG(INFO) << "Accuracy: " << accuracy;
