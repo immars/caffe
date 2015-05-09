@@ -156,6 +156,21 @@ class XavierFiller : public Filler<Dtype> {
   }
 };
 
+template <typename Dtype>
+class PReLuFiller : public Filler<Dtype> {
+ public:
+  explicit PReLuFiller(const FillerParameter& param)
+      : Filler<Dtype>(param) {}
+  virtual void Fill(Blob<Dtype>* blob) {
+    CHECK(blob->count());
+    int fan_in = blob->count() / blob->num();
+    Dtype std = sqrt(Dtype(2) / fan_in);
+    caffe_rng_gaussian<Dtype>(blob->count(), 0, std,
+        blob->mutable_cpu_data());
+    CHECK_EQ(this->filler_param_.sparse(), -1)
+         << "Sparsity not supported by this Filler.";
+  }
+};
 
 /**
  * @brief Get a specific filler from the specification given in FillerParameter.
@@ -176,6 +191,8 @@ Filler<Dtype>* GetFiller(const FillerParameter& param) {
     return new UniformFiller<Dtype>(param);
   } else if (type == "xavier") {
     return new XavierFiller<Dtype>(param);
+  } else if (type == "prelu" ) {
+    return new PReLuFiller<Dtype>(param);
   } else {
     CHECK(false) << "Unknown filler name: " << param.type();
   }
