@@ -417,6 +417,9 @@ optional bool center_object = 8 [default = false];
 
 // Random rotation. Second operation after centering object
 optional float max_angle = 9 [default = 0];
+
+// Random scale: [1-max_scale, 1+max_scale]
+optional float max_scale = 10 [default = 0];
 }
 
 message SaltPepperParameter {

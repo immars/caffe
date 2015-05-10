@@ -281,11 +281,13 @@ namespace caffe {
     }
 
     const float max_angle = param.max_angle();
-    if (max_angle > 0) {
-      float angle = 0.0;
+    const float max_scale = param.max_scale();
+    if (max_angle > 0 || max_scale > 0) {
+      float angle = 0.0, scale = 1;
       caffe_rng_uniform(1, -max_angle, max_angle, &angle);
+      caffe_rng_uniform(1, 1 - max_scale, 1 + max_scale, &scale);
       cv::Mat matRotation = cv::getRotationMatrix2D(
-          cv::Point(out_img.cols / 2, out_img.rows / 2), (angle), 1.0);
+          cv::Point(out_img.cols / 2, out_img.rows / 2), (angle), scale);
       cv::Mat temp_img;
       cv::warpAffine(out_img, temp_img, matRotation, out_img.size(),
           interp_mode, pad_mode,
